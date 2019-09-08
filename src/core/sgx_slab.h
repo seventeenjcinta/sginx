@@ -18,21 +18,21 @@ typedef struct
     sgx_uint_t toal;
     sgx_uint_t used;
     sgx_uint_t reqs;
-} sgx_slab_stat_t;
+} sgx_slab_status_t;
 
 typedef struct 
 {
     sgx_shmtx_sh_t lock;
-    size_t min_size;        /// slot 块大小的下限, 而且这个下限必须大于 8
-    size_t min_shift;       /// 最小左移距离, 与上面的联合使用, 必须大于 3
-    sgx_slab_page_t *pages; /// 指向 m_page 数组
-    sgx_slab_page_t *last;  
-    sgx_slab_page_t free;   /// 管理free的页面
-    sgx_slab_page_t *status;
+    size_t min_size;            /// slot 块大小的下限, 而且这个下限必须大于 8
+    size_t min_shift;           /// 最小左移距离, 与上面的联合使用, 必须大于 3
+    sgx_slab_page_t *pages;     /// 指向 m_page 数组
+    sgx_slab_page_t *last;      /// 指向 slab page 管理结构的开始位置
+    sgx_slab_page_t free;       /// 管理free的页面, 空闲的 slab page 管理结构链表
+    sgx_slab_status_t *status;  /// 提供共享内存的状态信息
     sgx_uint_t pfree;
-    u_char *start;          /// 数据区的起始地址
-    u_char *end;            /// 数据区的结束地址
-    sgx_shmtx_t mutex;      /// 共享内存锁
+    u_char *start;              /// 数据区的起始地址
+    u_char *end;                /// 数据区的结束地址
+    sgx_shmtx_t mutex;          /// 共享内存锁
     u_char *log_ctx;
     u_char zero;
     unsigned log_nomem:1;

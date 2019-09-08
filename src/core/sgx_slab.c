@@ -83,10 +83,10 @@ void sgx_slab_init(sgx_slab_pool_t *pool)
     u_char *p;
     size_t size;
     sgx_uint_t n;
-    sgx_uint_t pages;
+    sgx_uint_t page_num;
     sgx_int_t m;
     sgx_slab_page_t *slots; /// slot 分级数组
-    sgx_slab_page_t *page;  /// page 管理结构
+    sgx_slab_page_t *pages;  /// page 管理结构
 
     pool -> min_size = (size_t)1 << pool -> min_shift;
 
@@ -99,12 +99,39 @@ void sgx_slab_init(sgx_slab_pool_t *pool)
     /// 最小可为8B，则shift为3，则对应可分为12-3,即8,16,32,64,
     /// 128,256,512,1024,2048 9个分级。
     n = sgx_pagesize_shift - pool -> min_shift;
-    for(sgx_uint_t i = 0; i < n; i ++){
+    for(sgx_uint_t i = 0; i < n; i ++) ßß{
         slots[i].slab = 0;
         slots[i].next = &slots[i];
         slots[i].pre = 0;
     }
     /// 跳过slot分级数组区域
     p += n * sizeof(sgx_slab_page_t);
-    pool -> stats = (sgx_slab_page_t)
+    pool -> stats = (sgx_slab_status_t *)p;
+    sgx_memzero(pool -> status, n * sizeof(sgx_slab_status_t));
+    p += n * sizeof(sgx_slab_status_t);
+    pool -> pages = (sgx_slab_page_t *)p;
+    sgx_memzero(pool -> status, n * sizeof(sgx_slab_page_t));
+    size -= n * (sizeof(sgx_slab_page_t) + sizeof(sgx_slab_status_t));
+    /// 每一个 page 均对应一个 ngx_slab_page_t 的管理结构
+    page_num = (sgx_uint_t)(size / (sgx_pagesize + sizeof(sgx_slab_page_t)));
+    pages = pool -> pages;
+    pool -> free.slab = 0;
+    pool -> free.next = pages;
+    pool -> free.prev = 0;
+
+    pages -> slab = page_num;
+    pages -> next = &pool -> free;
+    pages -> prev = (uintptr_t)&pool -> free;
+    /// 内存对齐，在膜 sgx_pagesize 意义下向上取整
+    pool -> start = sgx_align_ptr(p + page_num * sizeof(sgx_slab_page_t), sgx_pagesize);
+    m = pagenum - (pool -> end - pool -> start) / sgx_pagesize;
+    if(m > 0) {
+        pagenum -= m;
+        pages -> slab = pages;
+    }
+    pool -> last = pool -> pages + pagenum;
+    pool -> pfree = pagenum;
+    pool -> log_nomem = 1;
+    pool -> log_ctx = &pool -> zero;
+    pool -> zero = '\0';
 }
