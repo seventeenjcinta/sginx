@@ -8,6 +8,9 @@ typedef struct sgx_slab_page_s  sgx_slab_page_t;
 
 struct sgx_slab_page_s
 {
+    /// 存储标记chunk使用情况的bitmap(size = exact_size)
+    /// 存储chunk的大小(size < exact_size)
+    /// 存储标记chunk的使用情况及chunk大小(size > exact_size)
     uintptr_t slab;
     sgx_slab_page_t *next;
     uintptr_t prev;

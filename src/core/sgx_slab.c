@@ -90,7 +90,7 @@ void sgx_slab_init(sgx_slab_pool_t *pool)
 
     pool -> min_size = (size_t)1 << pool -> min_shift;
 
-    /// 跳过ngx_slab_page_t的空间，也即跳过slab header
+    /// 跳过ngx_slab_page_t的空间，即跳过slab header
     slots = sgx_slab_slots(pool);
     p = (u_char *) slots;
     size = pool -> end - p;
@@ -98,8 +98,9 @@ void sgx_slab_init(sgx_slab_pool_t *pool)
     /// 计算可分的级数，page_size为4kb时对应的shift为12，若
     /// 最小可为8B，则shift为3，则对应可分为12-3,即8,16,32,64,
     /// 128,256,512,1024,2048 9个分级。
+    /// 从最小 slot 大小到 page 大小之间的分级数
     n = sgx_pagesize_shift - pool -> min_shift;
-    for(sgx_uint_t i = 0; i < n; i ++) ßß{
+    for(sgx_uint_t i = 0; i < n; i ++) {
         slots[i].slab = 0;
         slots[i].next = &slots[i];
         slots[i].pre = 0;
@@ -134,4 +135,95 @@ void sgx_slab_init(sgx_slab_pool_t *pool)
     pool -> log_nomem = 1;
     pool -> log_ctx = &pool -> zero;
     pool -> zero = '\0';
+}
+
+void sgx_slab_alloc_locked(sgx_slab_pool_t *pool, size_t size)
+{
+    uintptr_t p;
+    uintptr_t m;
+    uintptr_t mask;
+    uintptr_t *bitmap;
+    sgx_uint_t n;
+    sgx_uint_t slot_id;
+    sgx_uint_t map;
+    sgx_uint_t shift;
+    sgx_slab_page_t *pages;
+    sgx_slab_page_t *prev;
+    sgx_slab_page_t *slots;
+
+    /// 请求的size大于最大的slot的大小，直接以页的形式分配空间
+    if(size > sgx_slab_max_size) {
+        ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, ngx_cycle -> log, 0, "slab alloc: %uz", size);
+        /// 获取 page
+        pages = sgx_slab_alloc_pages(pool, (size >> sgx_pagesize_shift) + ((size % sgx_pagesize) ? 1 : 0));
+        if(pages) {
+            /// 计算具体位置
+            p = sgx_slab_page_addr(pool, pages);
+            /// p = (page - pool->pages) << ngx_pagesize_shift;
+            /// p += (uintptr_t) pool->start;
+        }
+        else {
+            p = 0;
+        }
+
+        goto done;
+    }    
+    /// 请求的 size 小于等于 2048，可用 slot
+    /// 获取 slot 编号
+    if(size > pool -> min_size) {
+        size_t s;
+        
+        shift = 1;
+        s = size - 1;
+        while(s) {
+            shift ++;
+            s >>= 1;
+        }
+        slot_id = shift - pool -> min_shift;
+    }
+    else {
+        shift = pool -> min_shift;
+        slot_id = 0;
+    }
+    pool -> status[slot_id].reqs ++;
+    ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, ngx_cycle->log, 0, "slab alloc: %uz slot: %ui", size, slot);
+    /// 跳过 ngx_slab_page_t 的空间，即跳过 slab header
+    slots = sgx_slab_slots(pool);
+    page = slots[slot_id].next;
+    if(page -> next != page) {
+        if(shift < sgx_slab_exact_shift) {
+            bitmap = (uintptr_t *) sgx_slab_page_addr(pool, page);
+            map = (sgx_pagesize >> shift) / (8 * sizeof(uintptr_t));
+            for(sgx_uint_t i = 0; i < map; i ++) {
+                if(bitmap[i] != SGX_SLAB_BUSY) {
+                    for(sgx_uint_t j = 1, k = 0; j; j <<= 1, k ++) {
+                        if(bitmap[i] & j) {
+                            continue;
+                        }
+                        bitmap[i] |= j;
+                        k = (i * 8 * sizefo(uintptr_t) + k) << shift;
+                        p = (uintptr_t)bitmap + i;
+                        pool -> status[slot].used ++;
+                        if(bitmap[i] == SGX_SLAB_BUSY) {
+                            i ++;
+                            while(i < map) {
+                                if(bitmap[i] != SGX_SLAB_BUSY) {
+                                    goto done;
+                                }
+                            }
+                            prev = sgx_slab_page_prev(page);
+                            prev -> next = page -> next;
+                            page -> next -> prev = page -> prev;
+                            page -> next = NULL;
+                            page -> prev = SGX_SLAB_SMALL;
+                        }
+                        goto done;
+                    }
+                }
+            }
+        }
+        else if(shift == sgx_slab_exact_shift) {
+            for(sgx_uint_t i= 1； = )
+        }
+    }
 }
