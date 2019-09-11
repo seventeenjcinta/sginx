@@ -335,8 +335,7 @@ void sgx_pool_delete_file(void *data)
         }
     }
     if (sgx_close_file(cleanup_file -> fd) == SGX_FILE_ERROR) {
-        sgx_log_error(SGX_LOG_ALERT, cleanup_file -> log, sgx_errno,
-                      sgx_close_file_n " \"%s\" failed", cleanup_file -> name);
+        sgx_log_error(SGX_LOG_ALERT, cleanup_file -> log, sgx_errno, sgx_close_file_n " \"%s\" failed", cleanup_file -> name);
     }
 }
 
