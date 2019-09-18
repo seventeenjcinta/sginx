@@ -3,20 +3,23 @@
  * Copyright (C) Igor Sysoev
  * Copyright (C) Nginx, Inc.
  */
-
-
-#include <sgx_config.h>
-#include <sgx_core.h>
+#include "sgx_config.h"
+#include "sgx_core.h"
 
 static sgx_inline void *sgx_palloc_small(sgx_pool_t *pool, size_t size, sgx_uint_t align);
 static void *sgx_palloc_block(sgx_pool_t *pool, size_t size);
 static void *sgx_palloc_large(sgx_pool_t *pool, size_t size);
 
+void Test()
+{
+    printf("big is good.\n");
+}
+
 sgx_pool_t *sgx_create_pool(size_t size, sgx_log_t *log)
 {
     sgx_pool_t *pool;
 
-    /// #define ngx_memalign(alignment, size, log)  ngx_alloc(size, log)
+    /// #define ngx_memalign(alignment, size, log)  ngx_aloc(size, log)
     /// 申请内存
     pool = sgx_memalign(SGX_POOL_ALIGNMENT, size, log);
     if(pool == NULL) {
@@ -30,7 +33,7 @@ sgx_pool_t *sgx_create_pool(size_t size, sgx_log_t *log)
     size = size - sizeof(sgx_pool_t);
     pool -> max_size = (size < SGX_MAX_ALLOC_FROM_POOL) ? size : SGX_MAX_ALLOC_FROM_POOL;
     /// 只有根节点才需初始化以下内容
-    pool -> current = page;
+    pool -> current = page;l
     pool -> chain = NULL;
     pool -> large = NULL;
     pool -> cleanup = NULL;

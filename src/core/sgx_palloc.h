@@ -4,12 +4,12 @@
  */
 
 
-#ifndef _SGX_PALLOC_H_INCLUDED_
-#define _SGX_PALLOC_H_INCLUDED_
+// #ifndef _SGX_PALLOC_H_INCLUDED_
+// #define _SGX_PALLOC_H_INCLUDED_
 
 
-#include <sgx_config.h>
-#include <sgx_core.h>
+#include "sgx_config.h"
+#include "sgx_core.h"
 
 #define SGX_POOL_ALIGNMENT 16
 #define SGX_MAX_ALLOC_FROM_POOL (sgx_pagesizse - 1)
@@ -73,4 +73,4 @@ void sgx_pool_run_cleanup_file(sgx_pool_t *p, sgx_fd_t fd);
 void sgx_pool_cleanup_file(void *data);
 void sgx_pool_delete_file(void *data);
 
-#endif /* _SGX_PALLOC_H_INCLUDED_ */
+// #endif /* _SGX_PALLOC_H_INCLUDED_ */

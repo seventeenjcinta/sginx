@@ -1,4 +1,4 @@
-#include <sgx_config.h>
+#include "sgx_config.h"
 
 #define  SGX_OK          0
 #define  SGX_ERROR      -1

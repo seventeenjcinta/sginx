@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "socket.h": "c",
+        "sgx_thread_pool.h": "c"
+    }
+}

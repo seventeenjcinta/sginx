@@ -99,4 +99,8 @@ sgx_cycle_t *sgx_init_cycle(sgx_cycle_t *old_cycle)
     }
     /// 红黑树初始化  todo：改成 splay
     sgx_rbtree_init(&cycle -> config_dump_rbtree, &cycle -> config_dump_sentinel, sgx_str_rbtree_insert_value);
+    if(old_cycle -> open_file.part.nelts) {
+        n = old_cycle -> open_file.part.nelts;
+        for(part = )
+    }
 }
