@@ -1,10 +1,12 @@
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+
 #include "sgx_thread_pool.h"
 
 void *f(void *arg)
 {
-    printf("thread %d\n", (int)arg);
+    printf("thread %d\n", (long)arg);
 }
 
 int main()
@@ -17,7 +19,7 @@ int main()
         sgx_thread_pool_add_work(f, (void *)i);
     }
     sleep(2);
-    sgx_thread_destroy();
+    sgx_thread_pool_destroy();
 
     return 0;
 }

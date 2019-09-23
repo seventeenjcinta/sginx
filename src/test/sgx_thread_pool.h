@@ -1,3 +1,5 @@
+// #ifndef THREAD_POOL_H__
+// #define THREAD_POOL_H__
 #include <pthread.h>
 
 typedef struct sgx_work_list_s
@@ -19,5 +21,6 @@ struct sgx_thread_pool
 
 /// 0 - 成功
 int sgx_thread_pool_create(int sgx_max_num);
-void sgx_thread_destroy();
+void sgx_thread_pool_destroy();
 int sgx_thread_pool_add_work(void *(*routine)(void *), void *arg);
+// #endif
