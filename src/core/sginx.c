@@ -1,64 +1,61 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "sginx.h"
+#include "sgx_epoll.h"
+#include "sgx_common.h"
 #define SGX_ECHO_PORT (2002)
 #define SGX_MAX_BUF (1001)
 
 int main(int argc, char *argv[])
 {
-    struct sockaddr_in sgx_server_sockaddr;
-    int sgx_listen_socket;
-    int sgx_port;
-    int sgx_temp;
-    char *sgx_endptr;
+    struct epoll_event event;
+    int listen_socket;
+    int port;
+    int temp;
+    int epoll_fd;
+    char *endptr;
 
     if(argc == 2) {
-        sgx_port = strtol(argv[1], &sgx_endptr, 0);
-        if(*sgx_endptr) {
-            fprintf(stderr, "ECHOSERV: Invalid port number.\n");    
+        port = strtol(argv[1], &endptr, 0);
+        if(*endptr) {
+            sgx_log_err("invalid port number");
             exit(EXIT_FAILURE);
         }
     }
     else if(argc < 2) {
-        sgx_port = SGX_ECHO_PORT;
+        port = SGX_ECHO_PORT;
     }
     else {
-        fprintf(stderr, "ECHOSERV: Invalid arguments.\n");
+        sgx_log_err("invalid arguments");
 	    exit(EXIT_FAILURE);
     }
-    sgx_listen_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if(sgx_listen_socket < 0) {
-        fprintf(stderr, "ECHOSERV: Error creating listening socket.\n");
-        exit(EXIT_FAILURE);
+    listen_socket = sgx_get_listen_fd(port);
+    if(listen_socket < 0) {
+        sgx_log_err("call get_listen_fd()");
+    } 
+    /// 使套接字无阻塞。 如果侦听套接字是阻塞套接字，则从epoll出来并接受最后一个连接后，下一个accpet将阻塞
+    temp = sgx_socket_unblock(listen_socket);
+    if(temp < 0) {
+        sgx_log_err("make_socket_un_blocking");
     }
-    memset(&sgx_server_sockaddr, 0, sizeof(sgx_server_sockaddr));
-    sgx_server_sockaddr.sin_family = AF_INET;
-    sgx_server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /// 本地环境
-    sgx_server_sockaddr.sin_port = htons(sgx_port);
-    sgx_temp = bind(sgx_listen_socket, (struct sockaddr *)&sgx_server_sockaddr, sizeof(sgx_server_sockaddr));
-    if(sgx_temp < 0) {
-        fprintf(stderr, "ECHOSERV: Error calling bind()\n");
-        exit(EXIT_FAILURE);
-    }
-    sgx_temp = listen(sgx_listen_socket, SGX_MAX_LISTEN);
-    if(sgx_temp < 0) {
-        fprintf(stderr, "ECHOSERV: Error calling listen()\n");
-        exit(EXIT_FAILURE);
-    }
+    epoll_fd = sgx_epoll_create(0);
+    event.data.ptr = ()
+    /// 
     while(1) {
         int sgx_connect_socket;
         char sgx_buffer[SGX_MAX_BUF];
 
         printf("seventeen is good.\n");
-        sgx_connect_socket = accept(sgx_listen_socket, NULL, NULL);
+        sgx_connect_socket = accept(listen_socket, NULL, NULL);
         if(sgx_connect_socket < 0) {
-            fprintf(stderr, "ECHOSERV: Error calling accept()\n");
+            sgx_log_err("calling accept()");
             exit(EXIT_FAILURE);
         }
         printf("accept succeed.\n");
@@ -66,7 +63,7 @@ int main(int argc, char *argv[])
         printf("read is %s\n", sgx_buffer);
         Writeline(sgx_connect_socket, sgx_buffer, strlen(sgx_buffer));
         if(close(sgx_connect_socket) < 0) {
-            fprintf(stderr, "ECHOSERV: Error calling close()\n");
+            sgx_log_err("calling close()");
             exit(EXIT_FAILURE);
         }
     }
@@ -74,9 +71,70 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+int sgx_get_listen_fd(int port)
+{
+    struct sockaddr_in server_sockaddr;
+    int listen_fd;
+    int optval;
+    int temp;
+    
+    listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(listen_fd < 0) {
+        sgx_log_err("creating listening socket");
+        
+        return -1;
+    }
+    optval = 1;
+    temp = setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval, sizeof(int));
+    if(temp < 0) {
+        sgx_log_err("set socket opt");
+
+        return -1;
+    }
+    memset(&server_sockaddr, 0, sizeof(server_sockaddr));
+    server_sockaddr.sin_family = AF_INET;
+    server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /// 本地环境
+    server_sockaddr.sin_port = htons((unsigned short)port);
+    temp = bind(listen_fd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr));
+    if(temp < 0) {
+        sgx_log_err("calling bind()");
+        
+        return -1;
+    }
+    temp = listen(listen_fd, SGX_MAX_LISTEN);
+    if(temp < 0) {
+        sgx_log_err("calling listen()");
+        
+        return -1;
+    }
+
+    return listen_fd;
+}
+
+int sgx_socket_unblock(int fd)
+{
+    int flag;
+
+    flag = fcntl(fd, F_SETFL, 0);
+    if(flag == -1) {
+        sgx_log_err("call fcntl()");
+        
+        return -1;
+    }
+    flag |= O_NONBLOCK;
+    flag = fcntl(fd, F_SETFL, flag);
+    if(flag == -1) {
+        sgx_log_err("call fcntl()");
+        
+        return -1;
+    }
+
+    return 0;
+}
+
 ssize_t Readline(int sgx_fd, void *sgx_ptr, size_t sgx_max_len)
 {
-    ssize_t sgx_temp;
+    ssize_t temp;
     ssize_t sgx_len;
     char sgx_c;
     char *sgx_buffer;
@@ -84,15 +142,15 @@ ssize_t Readline(int sgx_fd, void *sgx_ptr, size_t sgx_max_len)
     sgx_len = 1;
     sgx_buffer = sgx_ptr;
     while(sgx_len < sgx_max_len) {
-        sgx_temp = read(sgx_fd, &sgx_c, 1);
-        if(sgx_temp == 1) {
+        temp = read(sgx_fd, &sgx_c, 1);
+        if(temp == 1) {
             *sgx_buffer = sgx_c;
             sgx_buffer ++;
             if(sgx_c == '\n') {
                 break;
             }
         }
-        else if(!sgx_temp) {
+        else if(!temp) {
             if(sgx_len == 1) {
                 return 0;
             }

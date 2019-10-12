@@ -2,6 +2,10 @@
     "files.associations": {
         "socket.h": "c",
         "sgx_thread_pool.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "sgx_core.h": "c",
+        "sgx_epoll.h": "c",
+        "sgx_common.h": "c",
+        "epoll.h": "c"
     }
 }
