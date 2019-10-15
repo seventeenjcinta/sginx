@@ -1,10 +1,17 @@
-### 松糕鞋(sgx)
+### 松糕鞋(sgx - super goose X)
 
+#### 简介
+松糕鞋是
+
+#### 规则
+- xxx.h 定义只在 xxx.c 中使用的宏
+- 通用宏在 sgx_common.h 定义
+- 单个文件下以 sgx_ 开头的函数表示该函数可导出（类似于 Go 的函数首字母大写）
 
 #### 结构
-- xxx.h 定义只在 xxx.c 中使用的宏
-- 通用宏在 sgx_core.h 定义
+- core
+- event
+- http
 
-#### 变量解释
-- 松糕鞋中除了结构体内部变量名以外所有声明的变量均以 sgx_ 开头
-- 结构体 or 特定变量均以 _(说明)_结构体名 结尾，例如：sgx_temp_socket，sgx_tpool
+#### TODO：
+- 规范错误码

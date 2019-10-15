@@ -3,5 +3,5 @@
 
 #include "sgx_list.h"
 #include "sgx_util.h"
-
+#include "http_request.h"
 #endif

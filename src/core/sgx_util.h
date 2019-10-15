@@ -16,7 +16,7 @@ typedef struct
     int thread_num;
 }sgx_conf;
 
-int read_con(char *filename, sgx_conf *cf, char *buf, int len);
+int read_conf(char *filename, sgx_conf *cf, char *buf, int len);
 // ssize_t Readline(int sgx_fd, void *sgx_ptr, size_t sgx_max_len);
 // ssize_t Writeline(int sgx_fd, const void *sgx_ptr, size_t sgx_max_len);
 

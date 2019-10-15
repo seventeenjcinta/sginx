@@ -7,64 +7,131 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "sginx.h"
+#include <signal.h>
+#include "sgx_rush.h"
+#include "event_timer.h"
+#include "sgx_log.h"
 #include "sgx_epoll.h"
 #include "sgx_common.h"
+#include "http/http.h"
 #define SGX_ECHO_PORT (2002)
 #define SGX_MAX_BUF (1001)
 
+extern struct epoll_event *events;
+
 int main(int argc, char *argv[])
 {
-    struct epoll_event event;
+    int result;
+    /// 配置
+    char *conf_file;
+    char conf_buf[SGX_BUFLEN];
+    sgx_conf config;
+    sgx_http_request *event_request;
+    /// 信号量
+    struct sigaction sig;
+    /// socket    
+    struct sockaddr_in client_addr
+    socklen_t inlen;
     int listen_socket;
     int port;
-    int temp;
-    int epoll_fd;
     char *endptr;
+    /// epoll
+    struct epoll_event event;
+    int epoll_fd;
 
-    if(argc == 2) {
-        port = strtol(argv[1], &endptr, 0);
-        if(*endptr) {
-            sgx_log_err("invalid port number");
-            exit(EXIT_FAILURE);
-        }
+    /// 读取配置文件
+    conf_file = BASE_CONF;
+    result = read_conf(conf_file, &config, conf_buf, SGX_BUFLEN);
+    if(result != SGX_CONF_OK) {
+        sgx_log_err("read conf err");
     }
-    else if(argc < 2) {
-        port = SGX_ECHO_PORT;
+    /// 为 SIGPIPE 安装信号句柄，当通过远程关闭 fd 时，对该 fd 进行写入将导致系统发送 SIGPIPE 到此过程，退出程序
+    memset(&sig, '\0', sizeof(sig));
+    sig.sa_handler = SIG_IGN;
+    sig.sa_flags = 0;
+    if(sigaction(SIGPIPE, &sig, NILL)) {
+        sgx_log_err("install sigal handler for SIGPIPE");
+        exit(EXIT_FAILURE);
     }
-    else {
-        sgx_log_err("invalid arguments");
-	    exit(EXIT_FAILURE);
-    }
+    /// 初始化 listening socket
+    /// 初始化 client_addr 和 inlen  要不然会有 accept Invalid argument 报错
+    inlen = 1;
+    memset(*client_addr, 0, sizeof((struct sockaddr_in)));
     listen_socket = sgx_get_listen_fd(port);
     if(listen_socket < 0) {
         sgx_log_err("call get_listen_fd()");
     } 
     /// 使套接字无阻塞。 如果侦听套接字是阻塞套接字，则从epoll出来并接受最后一个连接后，下一个accpet将阻塞
-    temp = sgx_socket_unblock(listen_socket);
-    if(temp < 0) {
+    result = sgx_socket_unblock(listen_socket);
+    if(result < 0) {
         sgx_log_err("make_socket_un_blocking");
     }
     epoll_fd = sgx_epoll_create(0);
-    event.data.ptr = ()
-    /// 
+    /// epoll 和 http_request
+    event_request = (sgx_http_request *)malloc(sizeof(sgx_http_request));
+    if(event_request == NULL) {
+        sgx_log_err("malloc(sizeof(sgx_http_request)");
+    }
+    sgx_init_request(event_request, listen_socket, epoll_fd, &cf);
+    event.data.ptr = (void *)event_request;
+    event.events = EPOLLIN | EPOLLET;
+    sgx_epoll_add(epoll_fd, listen_socket, &event);
+    /// 初始化 timer
+    sgx_timer_init();
+    sgx_log_info("super goose X rush!");
     while(1) {
-        int sgx_connect_socket;
-        char sgx_buffer[SGX_MAX_BUF];
+        int n;
+        int time;
 
-        printf("seventeen is good.\n");
-        sgx_connect_socket = accept(listen_socket, NULL, NULL);
-        if(sgx_connect_socket < 0) {
-            sgx_log_err("calling accept()");
-            exit(EXIT_FAILURE);
-        }
-        printf("accept succeed.\n");
-        Readline(sgx_connect_socket, sgx_buffer, SGX_MAX_BUF - 1);
-        printf("read is %s\n", sgx_buffer);
-        Writeline(sgx_connect_socket, sgx_buffer, strlen(sgx_buffer));
-        if(close(sgx_connect_socket) < 0) {
-            sgx_log_err("calling close()");
-            exit(EXIT_FAILURE);
+        /// 等待时间
+        time = sgx_timer_find();
+        n = sgx_epool_wait(epoll_fd, events, SGX_MAX_EVENTS, time);
+        sgx_handle_expire_timers();
+
+        for(int i = 0; i < n; i ++) {
+            sgx_http_request *request; 
+            int fd;
+
+            request = (sgx_http_request *)events[i].data.ptr;
+            fd = request -> fd;
+            if(listen_socket == fd) {
+                while(1) {
+                    int infd;
+                    sgx_http_request *new_request;
+
+                    infd = accept(listen_socket, (struct sockaddr *)&client_addr, &inlen);
+                    if(infd < 0) {
+                        if(errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                            /// 所有的进程都在连接
+                            break;
+                        }
+                        else {
+                            sgx_log_err("accept");
+                            break;
+                        }
+                    }
+                    result = sgx_socket_unblock(infd);
+                    if(result != 0) {
+                        sgx_log_err("make_socket_un_blocking");
+                    }
+                    sgx_log_info("new connection fd: %d", infd);
+                    new_request = (sgx_http_request *)malloc(sizeof(sgx_http_request));
+                    if(new_request == NULL) {
+                        sgx_log_err("malloc(sizeof(sgx_http_request)");
+                    }
+                    event.data.ptr = (void *)new_request;
+                    event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+                    sgx_epoll_add(new_request, infd, &event);
+                    sgx_timer_add(request, SGX_TIMEOUT_DEFAULT, sgx_http_close_conn)
+                }
+            }
+            else {
+                if((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & EPOLLIN))) {
+                    sgx_log_err("epoll fd: %d", request -> fd);
+                }
+                close(fd);
+                continue;
+            }
         }
     }
 
@@ -76,7 +143,7 @@ int sgx_get_listen_fd(int port)
     struct sockaddr_in server_sockaddr;
     int listen_fd;
     int optval;
-    int temp;
+    int result;
     
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if(listen_fd < 0) {
@@ -85,8 +152,8 @@ int sgx_get_listen_fd(int port)
         return -1;
     }
     optval = 1;
-    temp = setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval, sizeof(int));
-    if(temp < 0) {
+    result = setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval, sizeof(int));
+    if(result < 0) {
         sgx_log_err("set socket opt");
 
         return -1;
@@ -95,14 +162,14 @@ int sgx_get_listen_fd(int port)
     server_sockaddr.sin_family = AF_INET;
     server_sockaddr.sin_addr.s_addr = htonl(INADDR_ANY); /// 本地环境
     server_sockaddr.sin_port = htons((unsigned short)port);
-    temp = bind(listen_fd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr));
-    if(temp < 0) {
+    result = bind(listen_fd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr));
+    if(result < 0) {
         sgx_log_err("calling bind()");
         
         return -1;
     }
-    temp = listen(listen_fd, SGX_MAX_LISTEN);
-    if(temp < 0) {
+    result = listen(listen_fd, SGX_MAX_LISTEN);
+    if(result < 0) {
         sgx_log_err("calling listen()");
         
         return -1;
@@ -134,7 +201,7 @@ int sgx_socket_unblock(int fd)
 
 ssize_t Readline(int sgx_fd, void *sgx_ptr, size_t sgx_max_len)
 {
-    ssize_t temp;
+    ssize_t result;
     ssize_t sgx_len;
     char sgx_c;
     char *sgx_buffer;
@@ -142,15 +209,15 @@ ssize_t Readline(int sgx_fd, void *sgx_ptr, size_t sgx_max_len)
     sgx_len = 1;
     sgx_buffer = sgx_ptr;
     while(sgx_len < sgx_max_len) {
-        temp = read(sgx_fd, &sgx_c, 1);
-        if(temp == 1) {
+        result = read(sgx_fd, &sgx_c, 1);
+        if(result == 1) {
             *sgx_buffer = sgx_c;
             sgx_buffer ++;
             if(sgx_c == '\n') {
                 break;
             }
         }
-        else if(!temp) {
+        else if(!result) {
             if(sgx_len == 1) {
                 return 0;
             }

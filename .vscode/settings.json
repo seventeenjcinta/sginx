@@ -6,6 +6,11 @@
         "sgx_core.h": "c",
         "sgx_epoll.h": "c",
         "sgx_common.h": "c",
-        "epoll.h": "c"
+        "epoll.h": "c",
+        "http.h": "c",
+        "signal.h": "c",
+        "siginfo.h": "c",
+        "sgx_priority_queue.h": "c",
+        "random": "c"
     }
 }

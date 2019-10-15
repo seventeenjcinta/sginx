@@ -6,4 +6,4 @@
 #define  SGX_DECLINED   -5
 #define  SGX_ABORT      -6
 
-typedef void (*sgx_connection_handler_pt)(sgx_connection *c);
+// typedef void (*sgx_connection_handler_pt)(sgx_connection *c);
