@@ -84,7 +84,7 @@ void sgx_timer_add(sgx_http_request *request, size_t timeout, timer_handler_pt h
     node -> key = sgx_current_msec + timeout;
     node -> del = 0;
     node -> handler = handler;
-    node -> request = req;
+    node -> request = request;
     request -> timer = node;
     result = sgx_priority_queue_push(&sgx_timer_Q, node);
     if(result != SGX_OK) {
@@ -98,13 +98,14 @@ void sgx_timer_del(sgx_http_request *request)
 
     timer_update();
     node = request -> timer;
-    if(node == NUL) {
+    if(node == NULL) {
         sgx_log_err("sgx_timer_del: request -> timer is NULL");
     }
     node -> del = 1;
 }
 
 /// 时间到期
+/// 找到第一个合法的时间
 void sgx_handle_expire_timers()
 {
     sgx_timer_node *node;

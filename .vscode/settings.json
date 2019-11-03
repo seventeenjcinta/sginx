@@ -11,6 +11,10 @@
         "signal.h": "c",
         "siginfo.h": "c",
         "sgx_priority_queue.h": "c",
-        "random": "c"
+        "random": "c",
+        "http_request.h": "c",
+        "error.h": "c",
+        "code.h": "c",
+        "sgx_code.h": "c"
     }
 }

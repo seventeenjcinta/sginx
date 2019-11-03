@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     /// 信号量
     struct sigaction sig;
     /// socket    
-    struct sockaddr_in client_addr
+    struct sockaddr_in client_addr;
     socklen_t inlen;
     int listen_socket;
     int port;
@@ -49,14 +49,14 @@ int main(int argc, char *argv[])
     memset(&sig, '\0', sizeof(sig));
     sig.sa_handler = SIG_IGN;
     sig.sa_flags = 0;
-    if(sigaction(SIGPIPE, &sig, NILL)) {
+    if(sigaction(SIGPIPE, &sig, NULL)) {
         sgx_log_err("install sigal handler for SIGPIPE");
         exit(EXIT_FAILURE);
     }
     /// 初始化 listening socket
     /// 初始化 client_addr 和 inlen  要不然会有 accept Invalid argument 报错
     inlen = 1;
-    memset(*client_addr, 0, sizeof((struct sockaddr_in)));
+    memset(&client_addr, 0, sizeof(struct sockaddr_in));
     listen_socket = sgx_get_listen_fd(port);
     if(listen_socket < 0) {
         sgx_log_err("call get_listen_fd()");
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     if(event_request == NULL) {
         sgx_log_err("malloc(sizeof(sgx_http_request)");
     }
-    sgx_init_request(event_request, listen_socket, epoll_fd, &cf);
+    sgx_init_request(event_request, listen_socket, epoll_fd, &config);
     event.data.ptr = (void *)event_request;
     event.events = EPOLLIN | EPOLLET;
     sgx_epoll_add(epoll_fd, listen_socket, &event);
@@ -93,15 +93,17 @@ int main(int argc, char *argv[])
             int fd;
 
             request = (sgx_http_request *)events[i].data.ptr;
-            fd = request -> fd;
+            fd = request -> fd;            
             if(listen_socket == fd) {
+                /// 原始套接字，建立连接
                 while(1) {
-                    int infd;
+                    int accept_fd;
                     sgx_http_request *new_request;
-
-                    infd = accept(listen_socket, (struct sockaddr *)&client_addr, &inlen);
-                    if(infd < 0) {
-                        if(errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                    
+                    /// 建立连接
+                    accept_fd = accept(listen_socket, (struct sockaddr *)&client_addr, &inlen);
+                    if(accept_fd < 0) {
+                        if((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
                             /// 所有的进程都在连接
                             break;
                         }
@@ -110,27 +112,29 @@ int main(int argc, char *argv[])
                             break;
                         }
                     }
-                    result = sgx_socket_unblock(infd);
+                    result = sgx_socket_unblock(accept_fd);
                     if(result != 0) {
                         sgx_log_err("make_socket_un_blocking");
                     }
-                    sgx_log_info("new connection fd: %d", infd);
+                    sgx_log_info("new connection fd: %d", accept_fd);
                     new_request = (sgx_http_request *)malloc(sizeof(sgx_http_request));
                     if(new_request == NULL) {
                         sgx_log_err("malloc(sizeof(sgx_http_request)");
                     }
                     event.data.ptr = (void *)new_request;
                     event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
-                    sgx_epoll_add(new_request, infd, &event);
-                    sgx_timer_add(request, SGX_TIMEOUT_DEFAULT, sgx_http_close_conn)
+                    sgx_epoll_add(new_request, accept_fd, &event);
+                    sgx_timer_add(request, SGX_TIMEOUT_DEFAULT, sgx_http_close_conn);
                 }
             }
             else {
                 if((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) || (!(events[i].events & EPOLLIN))) {
                     sgx_log_err("epoll fd: %d", request -> fd);
+                    close(fd);
+                    continue;
                 }
-                close(fd);
-                continue;
+                sgx_log_info("new data from fd %d", fd);
+                sgx_init_request
             }
         }
     }

@@ -15,7 +15,7 @@
 #define SGX_HTTP_OK                          200
 #define SGX_HTTP_NOT_MODIFIED                304
 #define SGX_HTTP_NOT_FOUND                   404
-#define MAX_BUF                              8124
+#define SGX_MAX_BUF                          8124
 #define SGX_TIME_EPS                         1e-6
 
 typedef struct
@@ -23,12 +23,13 @@ typedef struct
     void *root;
     int fd;
     int epfd;
-    char buf[MAX_BUF];                  /// ring buffer
+    char buf[SGX_MAX_BUF];              /// ring buffer
     size_t pos;
     size_t last;
     int state;
     void *request_start;
     void *method_end;                   /// [)
+    int method;
     void *uri_start;
     void *uri_end;                      /// not include uri_end*
     void *path_start;
